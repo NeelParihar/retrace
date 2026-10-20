@@ -1,7 +1,7 @@
 {
   "name": "retrace",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter @retrace/sdk build && pnpm --filter web build",
