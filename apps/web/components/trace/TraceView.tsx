@@ -18,6 +18,7 @@ import { Inspector } from "./Inspector";
 import { ReplayBar } from "./ReplayBar";
 import { StepList } from "./StepList";
 import { Waterfall } from "./Waterfall";
+import { errorOf } from "@/lib/shapes";
 
 const link = "underline decoration-hairline underline-offset-2 hover:decoration-ink";
 
@@ -69,7 +70,7 @@ export function TraceView({ detail, now }: { detail: TraceDetail; now: number })
 
   const totals = cumulative(steps, replay.cursor);
   const answer = answerOf(trace.output);
-  const error = (trace.output as { error?: string } | null)?.error;
+  const error = errorOf(trace.output);
   const preview = inputPreview(trace.input, 240);
   const meta: [string, string][] = [
     ["steps", String(steps.length)],

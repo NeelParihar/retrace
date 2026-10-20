@@ -6,6 +6,7 @@ import { answerOf, outputPreview } from "@/lib/preview";
 import type { TraceDetail } from "@/lib/traces";
 import type { StepRow } from "@/lib/types";
 import { TypeTag } from "../ui/TypeTag";
+import { errorOf } from "@/lib/shapes";
 
 export function CompareView({ left, right }: { left: TraceDetail; right: TraceDetail }) {
   const at = divergenceIndex(left.trace, right.trace, left.steps, right.steps);
@@ -48,7 +49,7 @@ export function CompareView({ left, right }: { left: TraceDetail; right: TraceDe
 }
 
 function Summary({ d }: { d: TraceDetail }) {
-  const answer = answerOf(d.trace.output) ?? (d.trace.output as { error?: string } | null)?.error ?? "—";
+  const answer = answerOf(d.trace.output) ?? errorOf(d.trace.output) ?? "—";
   return (
     <div className="panel px-3 py-2">
       <div className="flex items-baseline gap-2">

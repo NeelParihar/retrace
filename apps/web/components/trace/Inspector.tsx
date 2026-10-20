@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { formatCost, formatDuration, pad2 } from "@/lib/format";
-import type { LlmInput, LlmOutput, StepRow, ToolOutput } from "@/lib/types";
+import { asLlmOutput, asMessages } from "@/lib/shapes";
+import type { StepRow, ToolOutput } from "@/lib/types";
 import { JsonView } from "../ui/JsonView";
 import { TypeTag } from "../ui/TypeTag";
 import { MessageList } from "./MessageList";
@@ -12,7 +13,7 @@ type Tab = "input" | "output" | "usage";
 export function Inspector({ step, forkDisabled, onFork }: { step: StepRow | undefined; forkDisabled: string | null; onFork: () => void }) {
   const [tab, setTab] = useState<Tab>("input");
   if (!step) return <div className="panel px-3 py-6 text-muted">Select a step to inspect it.</div>;
-  const messages = step.type === "llm" ? (step.input as LlmInput | null)?.messages : undefined;
+  const messages = step.type === "llm" ? asMessages(step.input) : null;
 
   return (
     <div className="panel flex min-w-0 flex-col">
@@ -69,8 +70,8 @@ function StepOutput({ step }: { step: StepRow }) {
       }
     }
   }
-  if (step.type === "llm" && step.output) {
-    const out = step.output as LlmOutput;
+  const out = step.type === "llm" ? asLlmOutput(step.output) : null;
+  if (out) {
     return <MessageList messages={[{ role: "assistant", text: out.text, toolCalls: out.toolCalls }]} />;
   }
   return step.output == null ? <p className="text-muted">No output.</p> : <JsonView value={step.output} />;

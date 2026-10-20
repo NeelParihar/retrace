@@ -1,4 +1,5 @@
-import type { LlmOutput, StepRow, ToolOutput } from "./types";
+import { asLlmOutput } from "./shapes";
+import type { StepRow, ToolOutput } from "./types";
 
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
@@ -15,8 +16,8 @@ export function inputPreview(input: unknown, max = 80): string {
 export function outputPreview(step: Pick<StepRow, "type" | "output" | "error">, max = 120): string {
   if (step.error) return clip(step.error, max);
   if (step.type === "llm") {
-    const o = step.output as LlmOutput | null;
-    if (!o) return "";
+    const o = asLlmOutput(step.output);
+    if (!o) return step.output == null ? "" : clip(typeof step.output === "string" ? step.output : JSON.stringify(step.output), max);
     if (o.toolCalls.length) return clip(o.toolCalls.map((c) => `→ ${c.name}(${JSON.stringify(c.input)})`).join(" "), max);
     return clip(o.text ?? "", max);
   }
