@@ -17,7 +17,10 @@ export function createMemoryRepo(): MemoryRepo {
 }
 
 async function createRepo(): Promise<Repo> {
-  return createMemoryRepo();
+  const repo = createMemoryRepo();
+  const { seedDemo } = await import("../seed");
+  await seedDemo(repo, { now: Date.now() });
+  return repo;
 }
 
 /** One repo per server process (survives dev HMR via globalThis). */
