@@ -1,0 +1,12 @@
+{
+  "name": "retrace",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter @retrace/sdk build && pnpm --filter web build",
+    "test": "pnpm -r test",
+    "seed": "pnpm --filter web seed",
+    "e2e": "pnpm --filter web e2e"
+  }
+}

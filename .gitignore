@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.env
+.env*.local
+.netlify
+test-results
+playwright-report
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
