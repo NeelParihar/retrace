@@ -45,12 +45,12 @@ export function TraceTable({ traces, now }: { traces: TraceRow[]; now: number })
           <tr className="border-b border-hairline">
             <th className={`${th} w-8`} aria-label="status" />
             <th className={th}>trace</th>
-            <th className={th}>id</th>
-            <th className={`${th} text-right`}>steps</th>
-            <th className={`${th} text-right`}>tokens</th>
-            <th className={`${th} text-right`}>cost</th>
-            <th className={`${th} text-right`}>latency</th>
-            <th className={`${th} text-right`}>age</th>
+            <th className={`${th} w-[96px]`}>id</th>
+            <th className={`${th} w-[64px] text-right`}>steps</th>
+            <th className={`${th} w-[80px] text-right`}>tokens</th>
+            <th className={`${th} w-[88px] text-right`}>cost</th>
+            <th className={`${th} w-[88px] text-right`}>latency</th>
+            <th className={`${th} w-[80px] text-right`}>age</th>
           </tr>
         </thead>
         <tbody>

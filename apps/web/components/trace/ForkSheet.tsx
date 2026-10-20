@@ -97,7 +97,7 @@ export function ForkSheet({ trace, step, onClose }: { trace: TraceRow; step: Ste
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 disabled={phase === "running"}
-                rows={Math.min(16, Math.max(4, text.split("\n").length + 1))}
+                rows={Math.min(18, Math.max(4, text.split("\n").reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 72)), 1)))}
                 spellCheck={false}
                 className="field num mt-1 block w-full resize-y text-[12px] leading-[1.5]"
               />
