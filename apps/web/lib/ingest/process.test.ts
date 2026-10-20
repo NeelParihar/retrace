@@ -90,4 +90,58 @@ describe("processEvents", () => {
     const other = await processEvents(repo, "00000000-0000-4000-8000-0000000000ff", events.slice(1, 2));
     expect(other.results[0]).toMatchObject({ ok: false, error: "unknown trace" });
   });
+
+  it("refuses to modify traces recorded by the demo agent", async () => {
+    const { startRun } = await import("../agent/loop");
+    const { SimulatedProvider } = await import("../agent/simulated");
+    const { virtualClock } = await import("../agent/clock");
+    const agent = await startRun(
+      { repo, provider: new SimulatedProvider(), clock: virtualClock(Date.parse("2026-10-01T00:00:00Z")), emit: () => {} },
+      { projectId: DEMO_PROJECT_ID, task: "How tall is Mount Everest?" },
+    );
+    const [step] = await repo.getSteps(agent.id);
+    const { results } = await processEvents(repo, DEMO_PROJECT_ID, [
+      { type: "step.end", id: step.id, traceId: agent.id, timestamp: ts(9), output: "vandalised" },
+      { type: "trace.end", id: agent.id, timestamp: ts(9), status: "error", output: { answer: "vandalised" } },
+      { type: "step.create", id: randomUUID(), traceId: agent.id, timestamp: ts(9), stepType: "tool", name: "x" },
+    ]);
+    expect(results.map((r) => r.error)).toEqual(Array(3).fill("trace was not created via ingest"));
+    expect((await repo.getTrace(agent.id))?.output).toEqual(agent.output);
+  });
+
+  it("treats a finished trace as read-only but accepts retried events", async () => {
+    const { traceId, gen, events } = fullTrace();
+    await processEvents(repo, DEMO_PROJECT_ID, events);
+    const retried = await processEvents(repo, DEMO_PROJECT_ID, [
+      { type: "step.end", id: gen, traceId, timestamp: ts(9), output: { text: "changed" } },
+      { type: "trace.end", id: traceId, timestamp: ts(9), status: "error", output: { answer: "changed" } },
+    ]);
+    expect(retried.results.every((r) => r.ok)).toBe(true);
+    expect((await repo.getStep(gen))?.output).toEqual({ text: "a" });
+    expect(await repo.getTrace(traceId)).toMatchObject({ status: "success", output: { answer: "a" } });
+    const late = await processEvents(repo, DEMO_PROJECT_ID, [
+      { type: "step.create", id: randomUUID(), traceId, timestamp: ts(9), stepType: "tool", name: "late" },
+    ]);
+    expect(late.results[0]).toMatchObject({ ok: false, error: "trace has already ended" });
+  });
+
+  it("reports a storage failure on one event without failing the batch", async () => {
+    const { traceId, events } = fullTrace();
+    const real = repo.insertStep.bind(repo);
+    repo.insertStep = async (s) => {
+      if (s.name === "answer") throw new Error("insertStep: invalid byte sequence");
+      return real(s);
+    };
+    const { results } = await processEvents(repo, DEMO_PROJECT_ID, events);
+    expect(results[3]).toMatchObject({ ok: false, error: "could not store event" });
+    expect(results.filter((r) => r.ok)).toHaveLength(4);
+    expect((await repo.getTrace(traceId))?.status).toBe("success");
+  });
+
+  it("strips NUL characters, which Postgres cannot store", async () => {
+    const { traceId, events } = fullTrace();
+    (events[0] as { input: unknown }).input = { question: "a\u0000b" };
+    await processEvents(repo, DEMO_PROJECT_ID, events.slice(0, 1));
+    expect((await repo.getTrace(traceId))?.input).toEqual({ question: "ab" });
+  });
 });
