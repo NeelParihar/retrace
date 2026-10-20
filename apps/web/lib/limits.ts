@@ -3,6 +3,10 @@ import { sha256Hex } from "./hash";
 
 export const LIVE_RUNS_PER_HOUR = 5;
 export const LIVE_DAILY_CAP_USD = 1;
+/** Agent runs + forks per IP per hour, any mode (each one writes a trace and ~10 steps). */
+export const RUNS_PER_HOUR = 30;
+export const INGEST_REQUESTS_PER_HOUR = 300;
+export const INGEST_MAX_BYTES = 512_000;
 
 export function clientIpHash(req: Request): string {
   const ip =
@@ -24,6 +28,15 @@ export async function checkLiveAllowed(repo: Repo, ipHash: string, now: number):
     return { ok: false, reason: `Live mode is limited to ${LIVE_RUNS_PER_HOUR} runs per hour — running in Simulated mode.` };
   }
   return { ok: true };
+}
+
+/** Counts one request against a per-IP hourly bucket; false once the bucket is over max. */
+export async function checkRateLimit(repo: Repo, bucket: string, ipHash: string, max: number, now: number): Promise<boolean> {
+  return repo.hitRateLimit(`${bucket}:${ipHash}`, hourWindow(now), max);
+}
+
+export function tooManyRequests(what: string): Response {
+  return Response.json({ error: `Too many ${what} from your network — try again in an hour.` }, { status: 429 });
 }
 
 export async function recordLiveUsage(repo: Repo, now: number, cost: number): Promise<void> {

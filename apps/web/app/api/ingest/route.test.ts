@@ -31,4 +31,16 @@ describe("POST /api/ingest", () => {
     const mixed = await POST(req({ batch: [{ type: "trace.end", id: randomUUID(), timestamp: new Date().toISOString() }] }));
     expect(mixed.status).toBe(207);
   });
+  it("413s oversized bodies", async () => {
+    const big = { batch: [{ type: "trace.create", id: randomUUID(), timestamp: new Date().toISOString(), name: "t", input: "x".repeat(600_000) }] };
+    expect((await POST(req(big))).status).toBe(413);
+  });
+  it("429s after the hourly request budget", async () => {
+    const { checkRateLimit, clientIpHash, INGEST_REQUESTS_PER_HOUR } = await import("@/lib/limits");
+    const { getRepo } = await import("@/lib/db");
+    const r = req({ batch: [{ type: "trace.create", id: randomUUID(), timestamp: new Date().toISOString(), name: "t" }] });
+    const repo = await getRepo();
+    for (let i = 0; i < INGEST_REQUESTS_PER_HOUR; i++) await checkRateLimit(repo, "ingest", clientIpHash(r), INGEST_REQUESTS_PER_HOUR, Date.now());
+    expect((await POST(r)).status).toBe(429);
+  });
 });

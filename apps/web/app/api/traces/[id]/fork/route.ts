@@ -4,14 +4,14 @@ import { ForkError } from "@/lib/agent/fork-plan";
 import { clockFor, selectProvider } from "@/lib/agent/select";
 import { getRepo, projectId } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
-import { clientIpHash, recordLiveUsage } from "@/lib/limits";
+import { checkRateLimit, clientIpHash, recordLiveUsage, RUNS_PER_HOUR, tooManyRequests } from "@/lib/limits";
 import { sseStream } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
 
 const body = z.object({
   stepIndex: z.number().int().min(0),
-  editedInput: z.string().max(20_000).nullable().optional(),
+  editedInput: z.string().max(20_000).transform((s) => s.replace(/\u0000/g, "")).nullable().optional(),
   mode: z.enum(["simulated", "live"]).optional(),
 });
 
@@ -23,6 +23,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const repo = await getRepo();
   const pid = projectId();
+  const ipHash = clientIpHash(req);
+  if (!(await checkRateLimit(repo, "run", ipHash, RUNS_PER_HOUR, Date.now()))) return tooManyRequests("runs");
   let prepared;
   try {
     prepared = await prepareFork(repo, pid, id, parsed.data.stepIndex, parsed.data.editedInput ?? null);
@@ -33,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const now = Date.now();
   const mode = parsed.data.mode ?? (prepared.source.provider === "live" ? "live" : "simulated");
-  const { provider, notice } = await selectProvider({ mode, repo, ipHash: clientIpHash(req), now });
+  const { provider, notice } = await selectProvider({ mode, repo, ipHash, now });
 
   return sseStream(async (emit) => {
     if (notice) emit({ type: "notice", data: { message: notice } });

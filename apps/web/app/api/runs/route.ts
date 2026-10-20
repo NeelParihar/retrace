@@ -2,13 +2,13 @@ import { z } from "zod";
 import { startRun } from "@/lib/agent/loop";
 import { clockFor, selectProvider } from "@/lib/agent/select";
 import { getRepo, projectId } from "@/lib/db";
-import { clientIpHash, recordLiveUsage } from "@/lib/limits";
+import { checkRateLimit, clientIpHash, recordLiveUsage, RUNS_PER_HOUR, tooManyRequests } from "@/lib/limits";
 import { sseStream } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
 
 const body = z.object({
-  task: z.string().trim().min(1).max(500),
+  task: z.string().transform((s) => s.replace(/\u0000/g, "").trim()).pipe(z.string().min(1).max(500)),
   mode: z.enum(["simulated", "live"]).default("simulated"),
 });
 
@@ -18,7 +18,9 @@ export async function POST(req: Request) {
 
   const repo = await getRepo();
   const now = Date.now();
-  const { provider, notice } = await selectProvider({ mode: parsed.data.mode, repo, ipHash: clientIpHash(req), now });
+  const ipHash = clientIpHash(req);
+  if (!(await checkRateLimit(repo, "run", ipHash, RUNS_PER_HOUR, now))) return tooManyRequests("runs");
+  const { provider, notice } = await selectProvider({ mode: parsed.data.mode, repo, ipHash, now });
 
   return sseStream(async (emit) => {
     if (notice) emit({ type: "notice", data: { message: notice } });
