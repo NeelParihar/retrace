@@ -1,4 +1,5 @@
 import type { Repo } from "./db/repo";
+import { isUuid } from "./ids";
 import type { Provider, StepRow, TraceRow, TraceStatus } from "./types";
 
 export function newTraceRow(p: {
@@ -61,4 +62,23 @@ export async function finalizeTrace(
   };
   await repo.updateTrace(traceId, patch);
   return { ...trace, ...patch };
+}
+
+export interface TraceDetail {
+  trace: TraceRow;
+  steps: StepRow[];
+  parent: TraceRow | null;
+  forks: TraceRow[];
+}
+
+export async function getTraceDetail(repo: Repo, projectId: string, id: string): Promise<TraceDetail | null> {
+  if (!isUuid(id)) return null;
+  const trace = await repo.getTrace(id);
+  if (!trace || trace.project_id !== projectId) return null;
+  const [steps, parent, forks] = await Promise.all([
+    repo.getSteps(id),
+    trace.parent_trace_id ? repo.getTrace(trace.parent_trace_id) : Promise.resolve(null),
+    repo.getForks(id),
+  ]);
+  return { trace, steps, parent, forks };
 }
