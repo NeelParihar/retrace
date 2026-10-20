@@ -12,6 +12,7 @@ import { displayStatus } from "@/lib/status";
 import type { TraceDetail } from "@/lib/traces";
 import type { StepRow } from "@/lib/types";
 import { KeyHints } from "../ui/KeyHints";
+import { ForkSheet } from "./ForkSheet";
 import { StatusDot } from "../ui/StatusDot";
 import { Inspector } from "./Inspector";
 import { ReplayBar } from "./ReplayBar";
@@ -146,6 +147,7 @@ export function TraceView({ detail, now }: { detail: TraceDetail; now: number })
       </div>
 
       <KeyHints hints={[[["space"], "play / pause"], [["←", "→"], "step"], [["j", "k"], "select"], [["f"], "fork"], [["esc"], "show all"]]} />
+      {forkStep && <ForkSheet trace={trace} step={forkStep} onClose={() => setForkStep(null)} />}
     </div>
   );
 }
