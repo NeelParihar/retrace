@@ -68,16 +68,23 @@ export async function startRun(deps: RunDeps, p: { projectId: string; task: stri
 
 /** Runs the loop to completion and finalizes the trace. Never throws for agent failures. */
 export async function drive(deps: RunDeps, rec: Recorder, state: AgentState): Promise<TraceRow> {
+  const emit = (e: AgentEvent) => {
+    try {
+      deps.emit(e);
+    } catch {
+      /* a broken event sink must not stop the trace from being finalized */
+    }
+  };
   let result: { status: TraceStatus; output: unknown };
   try {
     result = await continueRun(deps, rec, state);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    deps.emit({ type: "error", data: { message } });
+    emit({ type: "error", data: { message } });
     result = { status: "error", output: { error: message } };
   }
   const done = await finalizeTrace(deps.repo, rec.traceId, result.status, result.output, deps.clock.now());
-  deps.emit({ type: "done", data: done });
+  emit({ type: "done", data: done });
   return done;
 }
 

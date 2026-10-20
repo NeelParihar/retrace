@@ -1,3 +1,4 @@
+import { displayStatus } from "../status";
 import type { LlmInput, LlmOutput, Msg, StepRow, ToolCall, ToolInput, ToolOutput, TraceRow } from "../types";
 
 export class ForkError extends Error {
@@ -48,6 +49,9 @@ export function planFork(steps: StepRow[], stepIndex: number, editedInput: strin
     }
     return { copy, target, state: { messages, pending: [] }, editedToolOutput: null, edited: editedInput != null };
   }
+  if (editedInput != null && !pending.some((c) => c.id === (target.input as ToolInput).toolCallId)) {
+    throw new ForkError("The tool call for this step wasn't found in the copied history", 400);
+  }
   return { copy, target, state: { messages, pending }, editedToolOutput: editedInput, edited: editedInput != null };
 }
 
@@ -69,12 +73,15 @@ export function editableTextFor(step: StepRow): string | null {
 }
 
 export function forkDisabledReason(
-  trace: Pick<TraceRow, "provider" | "status">,
+  trace: Pick<TraceRow, "provider" | "status"> & { created_at?: string },
   step: Pick<StepRow, "type"> | undefined,
+  now: number = Date.now(),
 ): string | null {
   if (!step) return "Select a step";
   if (trace.provider === "sdk") return "Fork requires a replayable agent — this trace was ingested through the SDK";
-  if (trace.status === "running") return "Wait for the trace to finish";
+  if (trace.status === "running" && !(trace.created_at && displayStatus({ status: trace.status, created_at: trace.created_at }, now) === "stalled")) {
+    return "Wait for the trace to finish";
+  }
   if (step.type === "span") return "Span steps can't be forked";
   return null;
 }

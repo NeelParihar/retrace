@@ -68,10 +68,31 @@ describe("prepareFork", () => {
     const sdk = newTraceRow({ id: "00000000-0000-4000-8000-0000000000c1", project_id: DEMO_PROJECT_ID, name: "sdk", input: null, provider: "sdk", created_at: "2026-10-01T00:00:00.000Z" });
     await repo.insertTrace({ ...sdk, status: "success" });
     await expect(prepareFork(repo, DEMO_PROJECT_ID, sdk.id, 0, null)).rejects.toMatchObject({ status: 422 });
-    const running = { ...sdk, id: "00000000-0000-4000-8000-0000000000c2", provider: "simulated" as const, status: "running" as const };
+    const running = { ...sdk, id: "00000000-0000-4000-8000-0000000000c2", provider: "simulated" as const, status: "running" as const, created_at: new Date().toISOString() };
     await repo.insertTrace(running);
     await expect(prepareFork(repo, DEMO_PROJECT_ID, running.id, 0, null)).rejects.toMatchObject({ status: 409 });
     await expect(prepareFork(repo, "00000000-0000-4000-8000-0000000000ff", source.id, 0, null)).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("stalled and failed forks", () => {
+  it("allows forking a trace that has been running long enough to count as stalled", async () => {
+    await repo.updateTrace(source.id, { status: "running", created_at: new Date(Date.now() - 10 * 60_000).toISOString() });
+    await expect(prepareFork(repo, DEMO_PROJECT_ID, source.id, 0, null)).resolves.toBeTruthy();
+    expect(forkDisabledReason({ provider: "simulated", status: "running", created_at: new Date(Date.now() - 10 * 60_000).toISOString() }, { type: "llm" })).toBeNull();
+  });
+
+  it("finalizes the new trace as an error when copying fails part-way", async () => {
+    const prepared = await prepareFork(repo, DEMO_PROJECT_ID, source.id, 3, null);
+    const real = repo.insertStep.bind(repo);
+    let n = 0;
+    repo.insertStep = async (s) => {
+      if (++n === 2) throw new Error("db down");
+      return real(s);
+    };
+    const f = await executeFork(deps, DEMO_PROJECT_ID, prepared);
+    expect(f).toMatchObject({ status: "error", output: { error: "db down" } });
+    expect((await repo.getTrace(f.id))?.status).toBe("error");
   });
 });
 
