@@ -19,16 +19,16 @@ Trace every step of an LLM agent — model calls, tool calls, tokens and cost �
 
 ```mermaid
 flowchart LR
-  SDK["@retrace/sdk"] -->|POST /api/ingest| API
-  UI["Next.js UI<br/>list · detail · replay · fork"] -->|SSE /api/runs, /api/traces/:id/fork| API
-  API["Route handlers"] --> Agent["Agent loop + Recorder"]
+  SDK["TypeScript SDK"] -- "POST /api/ingest" --> API
+  UI["Next.js UI: list, detail, replay, fork"] -- "SSE runs and forks" --> API
+  API["Route handlers"] --> Agent["Agent loop and Recorder"]
   Agent --> Provider{"ModelProvider"}
-  Provider --> Sim["Simulated (deterministic)"]
+  Provider --> Sim["Simulated model"]
   Provider --> Claude["Claude Haiku 4.5"]
   API --> Repo["Repo interface"]
   Agent --> Repo
   Repo --> PG[("Supabase Postgres")]
-  Repo --> Mem[("In-memory (dev/tests)")]
+  Repo --> Mem[("In-memory store")]
 ```
 
 - `apps/web` — Next.js 15 App Router, React 19, Tailwind v4. Server code talks to a `Repo` interface; `MemoryRepo` and `SupabaseRepo` pass the same contract test suite.
